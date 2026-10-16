@@ -5,7 +5,7 @@ $logs = Join-Path $repo 'logs'
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
 $log = Join-Path $logs 'git-push.log'
 
-# 已确认的仓库地址（yusen390-bot/ai-mate，公开且为空）
+# 你的仓库地址（已确认存在、公开、初始为空）
 $knownUrl = 'https://github.com/yusen390-bot/ai-mate.git'
 
 $git = Join-Path $env:LOCALAPPDATA 'Programs\Git\cmd\git.exe'
@@ -17,33 +17,29 @@ function Git([string[]]$cmdArgs) { & $git -C $repo @cmdArgs 2>&1 | Tee-Object -F
 Say '=============================================='
 Say " 推送到 GitHub   $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 Say '=============================================='
-Say "  仓库: $repo"
-Say "  目标: $knownUrl"
+Say "  仓库    : $repo"
+Say "  目标    : $knownUrl"
 
 Say ''
 Say '[1] 提交本地改动'
 Git @('add', '-A')
 $staged = (& $git -C $repo diff --cached --name-only 2>$null | Measure-Object).Count
 if ($staged -gt 0) {
-  Say "  暂存文件 $staged 个，正在提交 ..."
-  Git @('commit', '-m', 'feat: W1 全栈骨架（四表数据模型 + 任务 CRUD API + Tailwind 任务台 + Vitest 测试）')
+  Say "  暂存 $staged 个文件，正在提交 ..."
+  Git @('commit', '-m', 'feat: AI Mate 更新')
 } else {
-  Say '  没有需要提交的改动（或已提交过）'
+  Say '  没有需要提交的改动（已是最新）'
 }
 Say '  最近提交：'
 Git @('log', '--oneline', '-n', '3')
 
 Say ''
-Say '[2] 关联远程仓库'
-$url = (& $git -C $repo remote get-url origin 2>$null) -as [string]
-if ($url) { Say "  当前 origin = $url" }
-if (-not $url -or $url -match '你的用户名' -or $url -match 'USERNAME') {
-  $url = $knownUrl
-  Say "  使用内置地址：$url"
-}
+Say '[2] 关联远程仓库（无条件纠正为你的地址，修复各种写错的地址）'
+$current = (& $git -C $repo remote get-url origin 2>$null) -as [string]
+if ($current) { Say "  原 origin = $current" }
 & $git -C $repo remote remove origin 2>$null | Out-Null
-Git @('remote', 'add', 'origin', $url)
-Say "  origin 已设置为 $url"
+Git @('remote', 'add', 'origin', $knownUrl)
+Git @('remote', '-v')
 
 Say ''
 Say '[3] 推送（首次会弹出 GitHub 登录窗口，请在浏览器里授权）'
@@ -53,13 +49,13 @@ $code = $LASTEXITCODE
 
 Say ''
 if ($code -eq 0) {
-  Say '[OK] 推送成功！打开 https://github.com/yusen390-bot/ai-mate 就能看到代码了。'
+  Say '[OK] 推送成功！打开 https://github.com/yusen390-bot/ai-mate 即可看到代码。'
 } else {
-  Say "[X] 推送失败（退出码 $code）。常见原因与处理："
-  Say '    1) 网络超时（国内直连 GitHub 不稳）→ 先打开 v2rayN 代理，再运行一次'
-  Say '    2) 登录窗口没弹出或授权失败 → 再运行一次，仔细看弹出的窗口'
-  Say '    3) 凭据失效 → 打开「凭据管理器」删除 github.com 条目后重试'
-  Say '    4) 其他 → 把本日志交给 Codex 分析'
+  Say "[X] 推送失败（退出码 $code）。按顺序排查："
+  Say '    1) 网络超时 → 先打开 v2rayN 代理，再运行一次'
+  Say '    2) 登录窗口没弹 / 授权失败 → 再运行一次'
+  Say '    3) Authentication failed → 凭据管理器里删除 github.com 后重试'
+  Say '    4) 其他 → 把本日志交给 Codex'
 }
 Say "日志：$log"
 if ($code -eq 0) { exit 0 } else { exit 1 }
