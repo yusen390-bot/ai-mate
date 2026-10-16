@@ -18,6 +18,9 @@ data/
 *.sqlite
 *.sqlite3
 
+# ===== 本地运行日志（启动脚本写出的）=====
+logs/
+
 # ===== 日志 =====
 *.log
 npm-debug.log*
