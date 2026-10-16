@@ -1,0 +1,35 @@
+# ===== 依赖与构建产物 =====
+node_modules/
+dist/
+dist-ssr/
+build/
+
+# ===== 密钥与本地配置（重要：只提交 .env.example）=====
+.env
+.env.*
+!.env.example
+
+# ===== 数据库文件 =====
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ===== 日志 =====
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===== 编辑器 / 系统 =====
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+.idea/
+.DS_Store
+Thumbs.db
+*.local

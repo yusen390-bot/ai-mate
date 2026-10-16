@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Server: Express + SQLite",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/server/src/index.ts",
+      "cwd": "${workspaceFolder}/server",
+      "runtimeArgs": ["--env-file-if-exists=${workspaceFolder}/.env"],
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Client: Vite (Chrome)",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/client/src"
+    },
+    {
+      "name": "Health check (GET /health)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/health.ts",
+      "console": "integratedTerminal"
+    }
+  ]
+}

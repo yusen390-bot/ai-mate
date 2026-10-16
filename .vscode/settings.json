@@ -1,0 +1,13 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.associations": { "*.env": "dotenv", ".env.*": "dotenv" },
+  "typescript.tsdk": "client/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "oxc.enable": true,
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "search.exclude": { "**/node_modules": true, "**/dist": true, "**/data": true }
+}

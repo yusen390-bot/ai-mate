@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "oxc.oxc-vscode",
+    "qwtel.sqlite-viewer",
+    "humao.rest-client",
+    "EditorConfig.EditorConfig",
+    "mikestead.dotenv"
+  ]
+}

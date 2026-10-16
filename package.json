@@ -1,0 +1,21 @@
+{
+  "name": "ai-mate",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Mate — React + TypeScript + Vite 前端 / Express + SQLite 后端 / OpenAI 兼容模型服务",
+  "scripts": {
+    "setup": "npm install && npm run setup:server && npm run setup:client",
+    "setup:server": "cd server && npm install",
+    "setup:client": "cd client && npm install",
+    "dev": "concurrently -n server,client -c cyan,green \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "typecheck": "cd server && npm run typecheck",
+    "db:test": "cd server && npm run db:test",
+    "health": "node scripts/health.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}
