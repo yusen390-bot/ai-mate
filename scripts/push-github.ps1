@@ -78,6 +78,9 @@ if ($gcm) {
   $gcmPath = $gcm -replace '\\', '/'
   & $git config --global credential.helper $gcmPath
   Say "  credential.helper = $gcmPath"
+  # 设备码方式：纯终端显示验证码 + 浏览器输码，不依赖图形弹窗（弹窗在脚本窗口里易被判为取消）
+  & $git config --global credential.gitHubAuthModes device
+  Say '  credential.gitHubAuthModes = device（会显示一次性验证码）'
 } else {
   Say '  未找到 GCM，将使用默认凭据方式'
 }
