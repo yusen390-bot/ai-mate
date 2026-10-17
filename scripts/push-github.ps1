@@ -61,7 +61,7 @@ if (-not $chosen) { ''; '[X] 网络通道都不通，请确认 v2rayN 已打开�
 
 ''
 '[4] 设置凭据保存方式（避开 GCM）'
-& $git config --global credential.helper ''
+& $git config --global --unset-all credential.helper 2>$null | Out-Null
 & $git config --global --add credential.helper store
 '  credential.helper = store  → 令牌保存在 %USERPROFILE%\.git-credentials'
 '  若还没保存过凭据，推送时会要求输入：'
