@@ -1,25 +1,17 @@
-export const PROJECT_STATUSES = [
-  'draft',
-  'planning',
-  'awaiting_confirmation',
-  'running',
-  'done',
-  'failed',
-  'cancelled',
-] as const;
+// 领域类型与状态词表统一来自 shared/types.ts（与后端共用同一份定义）
+import {
+  PROJECT_STATUSES,
+  PROJECT_TRANSITIONS,
+  TASK_STATUSES,
+  TASK_TRANSITIONS,
+  allowedNext,
+} from '@shared/types';
+import type { HealthResponse, Project, ProjectStatus, Task, TaskStats, TaskStatus } from '@shared/types';
 
-export const TASK_STATUSES = [
-  'pending',
-  'running',
-  'succeeded',
-  'failed',
-  'needs_review',
-  'cancelled',
-] as const;
+export { PROJECT_STATUSES, PROJECT_TRANSITIONS, TASK_STATUSES, TASK_TRANSITIONS, allowedNext };
+export type { HealthResponse, Project, ProjectStatus, Task, TaskStats, TaskStatus };
 
-export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
-export type TaskStatus = (typeof TASK_STATUSES)[number];
-
+// ---- UI 文案与配色（仅前端关心，放在这里）----
 export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
   draft: '草稿',
   planning: '规划中',
@@ -46,46 +38,6 @@ export const TASK_STATUS_STYLE: Record<TaskStatus, string> = {
   failed: 'bg-rose-500/15 text-rose-300 border-rose-500/40',
   needs_review: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
   cancelled: 'bg-slate-800 text-slate-500 border-slate-700',
-};
-
-export type TaskStats = { total: number; done: number };
-
-export type Project = {
-  id: number;
-  title: string;
-  goal: string;
-  status: ProjectStatus;
-  createdAt: string;
-  updatedAt: string;
-  taskStats: TaskStats;
-};
-
-export type Task = {
-  id: number;
-  projectId: number;
-  title: string;
-  description: string;
-  status: TaskStatus;
-  dependencies: number[];
-  planVersion: number;
-  orderIndex: number;
-  requiresApproval: boolean;
-  acceptanceCriteria: string;
-  attempts: number;
-  maxAttempts: number;
-  lastError: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type HealthResponse = {
-  status: string;
-  service: string;
-  version: string;
-  time: string;
-  uptimeSec: number;
-  model: { baseUrl: string; name: string; configured: boolean };
-  db: { ok: boolean; file: string; counts: { projects: number; tasks: number; runs: number; artifacts: number }; error: string | null };
 };
 
 export type CreateTaskInput = {

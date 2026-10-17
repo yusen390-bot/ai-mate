@@ -11,6 +11,9 @@ for (const suffix of ['', '-wal', '-shm']) fs.rmSync(testDbFile + suffix, { forc
 
 const repo = await import('../src/db.ts');
 
+const schema = repo.schemaInfo();
+console.log(`0) 迁移版本 ${schema.version}（本次应用 ${schema.applied.length} 个）`);
+
 const project = repo.createProject({ title: '自检项目', goal: '帮我整理一份技术主题报告' });
 console.log(`1) 建项目           #${project.id} ${project.title} (${project.status})`);
 

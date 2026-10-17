@@ -22,6 +22,7 @@
     AI-Mate/
     ├─ AGENTS.md              项目规范（技术栈、架构原则、四周验收标准）
     ├─ docs/                  方案书原文、开发路线与差距分析
+    ├─ shared/types.ts        前后端共用：状态枚举、流转规则、DTO 类型
     ├─ server/
     │  ├─ src/
     │  │  ├─ app.ts           组装 Express（不打开数据库，便于测试）
@@ -35,6 +36,7 @@
     │  │  └─ services/        taskRules（依赖合法性等业务规则）
     │  ├─ tests/              Vitest + Supertest（12 个用例）
     │  ├─ scripts/db-test.ts  四表 + 事务 + 级联删除自检
+    │  ├─ migrations/          SQL 迁移（001_init.sql，启动时自动执行）
     │  └─ data/               SQLite 数据库（已 gitignore）
     ├─ client/src/
     │  ├─ App.tsx             顶栏 + 标签页（任务 / 模型自检）
@@ -99,6 +101,21 @@
 - [ ] 第 3 周：执行引擎 / 受控工具 / 验证器 / 恢复
 - [ ] 第 4 周：任务地图 / 工作台 / 审批界面 / 自动化测试 / 演示
 
+## 状态流转白名单
+
+状态机定义在 `shared/types.ts`（前后端共用）。非法跳转由后端返回 **409 `INVALID_TRANSITION`**（附 `allowed` 列表），前端下拉只显示合法选项。
+
+| 实体 | 允许的流转 |
+|---|---|
+| 项目 | draft → planning / awaiting_confirmation / cancelled；planning → awaiting_confirmation / running / draft / cancelled；awaiting_confirmation → running / planning / cancelled；running → done / failed / cancelled；done 为终态；failed → planning / cancelled；cancelled → draft |
+| 任务 | pending → running / succeeded / cancelled；running → succeeded / failed / needs_review / cancelled；needs_review → succeeded / failed / cancelled；failed → pending / cancelled；succeeded 为终态；cancelled → pending |
+
+## 数据库迁移
+
+- 迁移文件放在 `server/migrations/NNN_name.sql`，按版本号顺序执行
+- 已执行版本记录在 `schema_version` 表，启动时自动补齐（幂等）
+- `/health` 的 `db.schemaVersion` 可查看当前版本
+- **新增/修改表结构必须写迁移文件，不要直接改 `db.ts`**
 ## 环境要求
 
 Node.js 24+（用到内置 `node:sqlite` 与原生 TypeScript 运行能力），无需 Python 或编译工具链。

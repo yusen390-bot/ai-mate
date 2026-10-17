@@ -1,0 +1,6 @@
+{
+  "name": "ai-mate-shared",
+  "private": true,
+  "type": "module",
+  "description": "前后端共用的领域类型与状态流转规则"
+}

@@ -1,27 +1,10 @@
 import { z } from 'zod';
+import { PROJECT_STATUSES, TASK_STATUSES } from '../../shared/types.ts';
+import type { ProjectStatus, TaskStatus } from '../../shared/types.ts';
 
-// ---------- 状态枚举（W3 的状态机将基于这套词汇）----------
-export const PROJECT_STATUSES = [
-  'draft',
-  'planning',
-  'awaiting_confirmation',
-  'running',
-  'done',
-  'failed',
-  'cancelled',
-] as const;
-
-export const TASK_STATUSES = [
-  'pending',
-  'running',
-  'succeeded',
-  'failed',
-  'needs_review',
-  'cancelled',
-] as const;
-
-export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
-export type TaskStatus = (typeof TASK_STATUSES)[number];
+// 状态词表来自 shared/types.ts（与前端共用同一份定义）
+export { PROJECT_STATUSES, TASK_STATUSES };
+export type { ProjectStatus, TaskStatus };
 
 export const projectStatusSchema = z.enum(PROJECT_STATUSES);
 export const taskStatusSchema = z.enum(TASK_STATUSES);

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { config, getDbFile, isModelConfigured } from '../config.ts';
-import { counts, getDb } from '../db.ts';
+import { counts, getDb, schemaInfo } from '../db.ts';
 
 export const healthRouter = Router();
 
@@ -8,10 +8,12 @@ healthRouter.get('/health', (_req, res) => {
   let ok = true;
   let dbError: string | null = null;
   let tableCounts = { projects: 0, tasks: 0, runs: 0, artifacts: 0 };
+  let schemaVersion = 0;
 
   try {
     getDb();
     tableCounts = counts();
+    schemaVersion = schemaInfo().version;
   } catch (error) {
     ok = false;
     dbError = error instanceof Error ? error.message : String(error);
@@ -28,6 +30,6 @@ healthRouter.get('/health', (_req, res) => {
       name: config.model.name,
       configured: isModelConfigured(),
     },
-    db: { ok, file: getDbFile(), counts: tableCounts, error: dbError },
+    db: { ok, file: getDbFile(), counts: tableCounts, schemaVersion, error: dbError },
   });
 });

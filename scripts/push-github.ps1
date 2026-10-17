@@ -24,6 +24,8 @@ function GitQuiet([string[]]$a) { $o = & $git -C $repo @a 2>&1; $o }
 
 ''
 '[1] 提交本地改动'
+# 若 logs/ 曾被误提交，先从索引移除（本地文件保留）
+& $git -C $repo rm -r --cached logs 2>$null | Out-Null
 Git @('add', '-A')
 $staged = (GitQuiet @('diff', '--cached', '--name-only', '--no-color') | Measure-Object).Count
 if ($staged -gt 0) { "  暂存 $staged 个文件，提交中 ..."; Git @('commit', '-m', 'feat: AI Mate 更新') } else { '  没有需要提交的改动' }

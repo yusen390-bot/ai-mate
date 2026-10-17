@@ -29,6 +29,8 @@ AI Mate 1.0 = 一个**可运行、可验证、具备完整 Agent 执行闭环**�
 - 重启恢复时**不能盲目重跑** running 状态的任务（可能已产生外部副作用）：
   需要幂等设计或执行前检查；无法确认结果的转为人工处理。
 - 任务状态更新 + 执行记录 + 产物保存，尽量放在**事务**中保证一致性。
+- 状态变更必须通过白名单（shared/types.ts 的 PROJECT_TRANSITIONS / TASK_TRANSITIONS），
+  非法跳转返回 409 INVALID_TRANSITION；新增状态或流转先改 shared，再改前后端。
 
 ## 4. 技术栈
 
@@ -42,6 +44,8 @@ AI Mate 1.0 = 一个**可运行、可验证、具备完整 Agent 执行闭环**�
 | 工作流 | 自己实现轻量状态机 | 核心控制逻辑必须自己掌握 |
 | 数据库 | SQLite（Node 内置 node:sqlite） | 见第 5 节差异说明 |
 | 测试 | Vitest + Supertest | 业务逻辑与 API 测试 |
+| 共享类型 | shared/types.ts | 状态枚举、流转规则、DTO 只定义一次 |
+| 迁移 | server/migrations/*.sql + schema_version | 启动自动执行，禁止直接改表 |
 | 版本管理 | Git + GitHub | 每完成一个可运行版本就提交 |
 
 ## 5. 与方案书的差异（已采纳的替代实现）

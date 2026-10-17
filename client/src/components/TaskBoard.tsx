@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { PROJECT_STATUS_LABEL, PROJECT_STATUSES, TASK_STATUS_LABEL, TASK_STATUS_STYLE, TASK_STATUSES, api } from '../api';
+import { PROJECT_STATUS_LABEL, PROJECT_TRANSITIONS, TASK_STATUS_LABEL, TASK_STATUS_STYLE, TASK_TRANSITIONS, allowedNext, api } from '../api';
 import type { CreateTaskInput, Project, ProjectStatus, Task, TaskStatus } from '../api';
 
 type Props = {
@@ -120,7 +120,7 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
               value={project.status}
               onChange={(e) => void changeProjectStatus(e.target.value as ProjectStatus)}
             >
-              {PROJECT_STATUSES.map((status) => (
+              {allowedNext(PROJECT_TRANSITIONS, project.status).map((status) => (
                 <option key={status} value={status}>
                   {PROJECT_STATUS_LABEL[status]}
                 </option>
@@ -222,7 +222,7 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
                   value={task.status}
                   onChange={(e) => void changeStatus(task, e.target.value as TaskStatus)}
                 >
-                  {TASK_STATUSES.map((status) => (
+                  {allowedNext(TASK_TRANSITIONS, task.status).map((status) => (
                     <option key={status} value={status}>
                       {TASK_STATUS_LABEL[status]}
                     </option>

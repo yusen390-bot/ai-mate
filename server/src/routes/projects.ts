@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { PROJECT_TRANSITIONS, canTransition } from '../../../shared/types.ts';
 import {
   createProject,
   createTask,
@@ -39,9 +40,22 @@ projectsRouter.patch(
   validate(updateProjectSchema),
   (req, res) => {
     const id = Number(req.params.id);
-    const updated = updateProject(id, req.body as UpdateProjectInput);
-    if (!updated) throw new AppError('PROJECT_NOT_FOUND', `项目 ${id} 不存在`, 404);
-    res.json(updated);
+    const project = getProject(id);
+    if (!project) throw new AppError('PROJECT_NOT_FOUND', `项目 ${id} 不存在`, 404);
+
+    const patch = req.body as UpdateProjectInput;
+
+    // 状态流转白名单：非法跳转（例如 draft -> done）直接拒绝
+    if (patch.status && !canTransition(PROJECT_TRANSITIONS, project.status, patch.status)) {
+      throw new AppError(
+        'INVALID_TRANSITION',
+        `项目状态不能从「${project.status}」直接变为「${patch.status}」`,
+        409,
+        { from: project.status, to: patch.status, allowed: PROJECT_TRANSITIONS[project.status] },
+      );
+    }
+
+    res.json(updateProject(id, patch));
   },
 );
 
