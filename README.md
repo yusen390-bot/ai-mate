@@ -127,6 +127,27 @@
 非法输出统一返回 `422`：`PLAN_INVALID` / `PLAN_DEPENDENCY` / `PLAN_CYCLIC`，**不会进入数据库**。
 计划版本记录在 `plan_versions` 表；保存时只替换"未执行过（attempts=0 且 pending）"的旧任务。
 
+## 局域网访问（手机 / 其他电脑）
+
+开发服务器已监听所有网卡，同一 Wi-Fi 下可用局域网 IP 访问：
+
+```powershell
+# 查看本机局域网 IP
+ipconfig | findstr IPv4
+# 然后在手机/其他电脑打开
+#   http://<你的局域网IP>:5173
+```
+
+首次访问若被阻止，请在**管理员 PowerShell** 放行防火墙：
+
+```powershell
+netsh advfirewall firewall add rule name="AI Mate 5173" dir=in action=allow protocol=TCP localport=5173
+netsh advfirewall firewall add rule name="AI Mate 3001" dir=in action=allow protocol=TCP localport=3001
+```
+
+⚠️ 安全提示：本应用**没有登录鉴权**，只建议在可信局域网内使用；不要把 5173/3001 直接暴露到公网。
+需要公网访问请用内网穿透（Cloudflare Tunnel / ngrok），并先补鉴权。
+
 ## 环境要求
 
 Node.js 24+（用到内置 `node:sqlite` 与原生 TypeScript 运行能力），无需 Python 或编译工具链。
