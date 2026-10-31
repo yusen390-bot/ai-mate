@@ -6,10 +6,32 @@ import {
   TASK_TRANSITIONS,
   allowedNext,
 } from '@shared/types';
-import type { HealthResponse, Project, ProjectStatus, Task, TaskStats, TaskStatus } from '@shared/types';
+import type {
+  HealthResponse,
+  PlanDraft,
+  PlanTaskDraft,
+  PlanVersionInfo,
+  Project,
+  ProjectPlan,
+  ProjectStatus,
+  Task,
+  TaskStats,
+  TaskStatus,
+} from '@shared/types';
 
 export { PROJECT_STATUSES, PROJECT_TRANSITIONS, TASK_STATUSES, TASK_TRANSITIONS, allowedNext };
-export type { HealthResponse, Project, ProjectStatus, Task, TaskStats, TaskStatus };
+export type {
+  HealthResponse,
+  PlanDraft,
+  PlanTaskDraft,
+  PlanVersionInfo,
+  Project,
+  ProjectPlan,
+  ProjectStatus,
+  Task,
+  TaskStats,
+  TaskStatus,
+};
 
 // ---- UI 文案与配色（仅前端关心，放在这里）----
 export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
@@ -115,5 +137,24 @@ export const api = {
   chat: (message: string) =>
     fetch('/api/chat', { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ message }) }).then((res) =>
       readJson<{ reply: string; model: string }>(res),
+    ),
+
+  // ---------- 计划（W2）----------
+  generatePlan: (projectId: number) =>
+    fetch(`/api/projects/${projectId}/plan/generate`, { method: 'POST' }).then((res) =>
+      readJson<{ projectId: number; plan: PlanDraft; model: string; rawOutput: string }>(res),
+    ),
+
+  savePlan: (projectId: number, plan: PlanDraft) =>
+    fetch(`/api/projects/${projectId}/plan`, { method: 'PUT', headers: jsonHeaders, body: JSON.stringify(plan) }).then(
+      (res) => readJson<{ version: number; tasks: Task[]; project: Project }>(res),
+    ),
+
+  getPlan: (projectId: number) =>
+    fetch(`/api/projects/${projectId}/plan`).then((res) => readJson<ProjectPlan>(res)),
+
+  confirmPlan: (projectId: number) =>
+    fetch(`/api/projects/${projectId}/plan/confirm`, { method: 'POST' }).then((res) =>
+      readJson<{ project: Project; version: number; note: string }>(res),
     ),
 };

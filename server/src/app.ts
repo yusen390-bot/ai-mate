@@ -2,6 +2,7 @@ import express from 'express';
 import { errorHandler, notFoundHandler } from './middleware/error.ts';
 import { healthRouter } from './routes/health.ts';
 import { modelRouter } from './routes/model.ts';
+import { planRouter } from './routes/plan.ts';
 import { projectsRouter } from './routes/projects.ts';
 import { tasksRouter } from './routes/tasks.ts';
 
@@ -14,6 +15,7 @@ export function createApp() {
   app.use(express.json({ limit: '1mb' }));
 
   app.use(healthRouter);
+  app.use('/api/projects/:projectId/plan', planRouter);
   app.use('/api/projects', projectsRouter);
   app.use('/api/tasks', tasksRouter);
   app.use(modelRouter);

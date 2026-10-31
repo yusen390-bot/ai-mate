@@ -116,6 +116,17 @@
 - 已执行版本记录在 `schema_version` 表，启动时自动补齐（幂等）
 - `/health` 的 `db.schemaVersion` 可查看当前版本
 - **新增/修改表结构必须写迁移文件，不要直接改 `db.ts`**
+## 计划引擎（W2）
+
+- `POST /api/projects/:id/plan/generate`：调模型生成计划（**只预览，不落库**）
+- `PUT /api/projects/:id/plan`：保存用户编辑后的计划（Zod + 依赖/环校验 → 写库、版本 +1、状态变 `awaiting_confirmation`）
+- `GET /api/projects/:id/plan`：当前计划 + 历史版本
+- `POST /api/projects/:id/plan/confirm`：确认执行 → `running`（W2 只切状态，执行引擎在 W3）
+
+计划格式（`shared/types.ts` 的 `PlanDraft`）：任务用 `ref`（t1/t2…）表达依赖，必须有可验证的 `acceptanceCriteria`。
+非法输出统一返回 `422`：`PLAN_INVALID` / `PLAN_DEPENDENCY` / `PLAN_CYCLIC`，**不会进入数据库**。
+计划版本记录在 `plan_versions` 表；保存时只替换"未执行过（attempts=0 且 pending）"的旧任务。
+
 ## 环境要求
 
 Node.js 24+（用到内置 `node:sqlite` 与原生 TypeScript 运行能力），无需 Python 或编译工具链。

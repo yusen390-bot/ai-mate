@@ -6,6 +6,9 @@ import { getDbFile } from './config.ts';
 import type { CreateTaskInput, UpdateTaskInput } from './schemas.ts';
 import type {
   Artifact,
+  PlanDraft,
+  PlanVersionInfo,
+  PlanVersionSource,
   Project,
   ProjectStatus,
   Run,
@@ -399,4 +402,114 @@ export function counts(): { projects: number; tasks: number; runs: number; artif
   const one = (table: string) =>
     Number((d.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n);
   return { projects: one('projects'), tasks: one('tasks'), runs: one('runs'), artifacts: one('artifacts') };
+}
+// ---------------------------------------------------------------------------
+// 计划（W2）
+// ---------------------------------------------------------------------------
+type PlanVersionRow = {
+  id: number;
+  project_id: number;
+  version: number;
+  source: string;
+  summary: string;
+  created_at: string;
+};
+
+export function listPlanVersions(projectId: number): PlanVersionInfo[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT id, project_id, version, source, summary, created_at
+         FROM plan_versions WHERE project_id = ? ORDER BY version DESC`,
+    )
+    .all(projectId) as PlanVersionRow[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    projectId: row.project_id,
+    version: row.version,
+    source: row.source as PlanVersionSource,
+    summary: row.summary,
+    createdAt: row.created_at,
+  }));
+}
+
+/** 当前计划 = 最新版本的任务 + 历史版本列表 */
+export function getPlan(projectId: number): { version: number; tasks: Task[]; versions: PlanVersionInfo[] } {
+  const versions = listPlanVersions(projectId);
+  const version = versions.length > 0 ? versions[0].version : 0;
+  if (version === 0) return { version: 0, tasks: [], versions };
+
+  const rows = getDb()
+    .prepare('SELECT * FROM tasks WHERE project_id = ? AND plan_version = ? ORDER BY order_index ASC, id ASC')
+    .all(projectId, version) as TaskRow[];
+
+  return { version, tasks: rows.map(toTask), versions };
+}
+
+/**
+ * 保存计划（事务）：
+ * - 版本号 = 已有最大版本 + 1
+ * - 只清理"还没执行过"的旧任务（attempts=0 且 pending）
+ * - ref -> 真实 task id 映射后写入 dependencies
+ * - 项目状态置为 awaiting_confirmation（确认前不会执行）
+ */
+export function savePlan(
+  projectId: number,
+  plan: PlanDraft,
+  opts: { source: PlanVersionSource; rawOutput?: string | null },
+): { version: number; tasks: Task[] } {
+  const d = getDb();
+
+  return tx(() => {
+    const row = d
+      .prepare(
+        `SELECT COALESCE(MAX(v), 0) AS v FROM (
+           SELECT MAX(plan_version) AS v FROM tasks WHERE project_id = ?
+           UNION ALL
+           SELECT MAX(version) AS v FROM plan_versions WHERE project_id = ?
+         )`,
+      )
+      .get(projectId, projectId) as { v: number };
+    const version = Number(row?.v ?? 0) + 1;
+
+    d.prepare(`DELETE FROM tasks WHERE project_id = ? AND attempts = 0 AND status = 'pending'`).run(projectId);
+
+    const insert = d.prepare(
+      `INSERT INTO tasks (project_id, title, description, status, dependencies, plan_version, order_index, requires_approval, acceptance_criteria)
+       VALUES (?, ?, ?, 'pending', '[]', ?, ?, ?, ?)`,
+    );
+
+    const ids = new Map<string, number>();
+    plan.tasks.forEach((task, index) => {
+      const info = insert.run(
+        projectId,
+        task.title,
+        task.description,
+        version,
+        index,
+        task.requiresApproval ? 1 : 0,
+        task.acceptanceCriteria,
+      );
+      ids.set(task.ref, Number(info.lastInsertRowid));
+    });
+
+    const setDeps = d.prepare('UPDATE tasks SET dependencies = ? WHERE id = ?');
+    for (const task of plan.tasks) {
+      const taskId = ids.get(task.ref) as number;
+      const deps = task.dependsOn.map((ref) => ids.get(ref) as number);
+      setDeps.run(JSON.stringify(deps), taskId);
+    }
+
+    d.prepare('INSERT INTO plan_versions (project_id, version, source, summary, raw_output) VALUES (?, ?, ?, ?, ?)').run(
+      projectId,
+      version,
+      opts.source,
+      plan.summary,
+      opts.rawOutput ?? null,
+    );
+
+    d.prepare(`UPDATE projects SET status = 'awaiting_confirmation', updated_at = ${NOW} WHERE id = ?`).run(projectId);
+
+    return { version, tasks: listTasks(projectId) };
+  });
 }

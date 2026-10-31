@@ -132,3 +132,37 @@ export type HealthResponse = {
     error: string | null;
   };
 };
+// ---------------- 计划（W2）----------------
+
+/** 模型/用户编辑阶段的任务草稿：用 ref（t1/t2…）表达任务之间的依赖 */
+export type PlanTaskDraft = {
+  ref: string;
+  title: string;
+  description: string;
+  acceptanceCriteria: string;
+  requiresApproval: boolean;
+  dependsOn: string[];
+};
+
+export type PlanDraft = {
+  summary: string;
+  tasks: PlanTaskDraft[];
+};
+
+export type PlanVersionSource = 'model' | 'manual';
+
+export type PlanVersionInfo = {
+  id: number;
+  projectId: number;
+  version: number;
+  source: PlanVersionSource;
+  summary: string;
+  createdAt: string;
+};
+
+export type ProjectPlan = {
+  projectId: number;
+  version: number;
+  tasks: Task[];
+  versions: PlanVersionInfo[];
+};

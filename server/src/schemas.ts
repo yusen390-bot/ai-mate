@@ -63,3 +63,25 @@ export type CreateProjectInput = z.input<typeof createProjectSchema>;
 export type UpdateProjectInput = z.input<typeof updateProjectSchema>;
 export type CreateTaskInput = z.input<typeof createTaskSchema>;
 export type UpdateTaskInput = z.input<typeof updateTaskSchema>;
+// ---------- 计划（W2）----------
+const refField = z.string().trim().regex(/^t\d+$/, 'ref 必须形如 t1、t2');
+
+export const planTaskDraftSchema = z.object({
+  ref: refField,
+  title: titleField,
+  description: z.string().max(2000).default(''),
+  acceptanceCriteria: z
+    .string()
+    .trim()
+    .min(1, '每个任务必须有可验证的完成标准')
+    .max(2000, '完成标准最长 2000 字'),
+  requiresApproval: z.boolean().default(false),
+  dependsOn: z.array(refField).max(20, '单个任务依赖过多').default([]),
+});
+
+export const planDraftSchema = z.object({
+  summary: z.string().trim().min(1, '计划摘要不能为空').max(2000),
+  tasks: z.array(planTaskDraftSchema).min(1, '计划至少要有一个任务').max(20, '任务最多 20 个'),
+});
+
+export type PlanDraftInput = z.input<typeof planDraftSchema>;

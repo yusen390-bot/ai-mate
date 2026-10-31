@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { PROJECT_STATUS_LABEL, PROJECT_TRANSITIONS, TASK_STATUS_LABEL, TASK_STATUS_STYLE, TASK_TRANSITIONS, allowedNext, api } from '../api';
-import type { CreateTaskInput, Project, ProjectStatus, Task, TaskStatus } from '../api';
+import type { CreateTaskInput, PlanDraft, Project, ProjectStatus, Task, TaskStatus } from '../api';
+import PlanEditor from './PlanEditor';
 
 type Props = {
   project: Project | null;
@@ -20,6 +21,10 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
 
   const projectId = project?.id ?? null;
 
+  const [planVersion, setPlanVersion] = useState(0);
+  const [showPlan, setShowPlan] = useState(false);
+  const [planDraft, setPlanDraft] = useState<PlanDraft | null>(null);
+
   const load = useCallback(async () => {
     if (projectId === null) {
       setTasks([]);
@@ -36,6 +41,60 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const loadPlan = useCallback(async () => {
+    if (projectId === null) {
+      setPlanVersion(0);
+      return;
+    }
+    try {
+      const plan = await api.getPlan(projectId);
+      setPlanVersion(plan.version);
+    } catch {
+      /* 计划信息仅用于展示，失败不打断主流程 */
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    void loadPlan();
+  }, [loadPlan]);
+
+  /** 把当前任务转回可编辑的计划草稿（ref 按顺序重建） */
+  function tasksToDraft(): PlanDraft {
+    const refById = new Map<number, string>();
+    tasks.forEach((task, index) => refById.set(task.id, `t${index + 1}`));
+    return {
+      summary: `计划 v${planVersion}（手动调整）`,
+      tasks: tasks.map((task, index) => ({
+        ref: `t${index + 1}`,
+        title: task.title,
+        description: task.description,
+        acceptanceCriteria: task.acceptanceCriteria,
+        requiresApproval: task.requiresApproval,
+        dependsOn: task.dependencies.map((id) => refById.get(id)).filter((ref): ref is string => Boolean(ref)),
+      })),
+    };
+  }
+
+  async function confirmPlan() {
+    if (projectId === null) return;
+    setError(null);
+    try {
+      await api.confirmPlan(projectId);
+      await load();
+      onProjectChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  function onPlanSaved() {
+    setShowPlan(false);
+    setPlanDraft(null);
+    void load();
+    void loadPlan();
+    onProjectChanged();
+  }
 
   async function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -131,7 +190,61 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
         <p className="mt-2 text-[11px] text-slate-500">
           共 {project.taskStats.total} 个任务，已完成 {project.taskStats.done} 个
         </p>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded border border-slate-700 bg-slate-950 px-2 py-0.5 text-slate-400">
+            计划 {planVersion > 0 ? `v${planVersion}` : '未生成'}
+          </span>
+          {(project.status === 'draft' ||
+            project.status === 'planning' ||
+            project.status === 'awaiting_confirmation' ||
+            project.status === 'failed') && (
+            <button
+              className="rounded bg-sky-600 px-3 py-1 font-medium text-white"
+              type="button"
+              onClick={() => {
+                setPlanDraft(null);
+                setShowPlan(true);
+              }}
+            >
+              用 AI 生成计划
+            </button>
+          )}
+          {planVersion > 0 && project.status !== 'running' && (
+            <button
+              className="rounded border border-slate-600 px-3 py-1 text-slate-300"
+              type="button"
+              onClick={() => {
+                setPlanDraft(tasksToDraft());
+                setShowPlan(true);
+              }}
+            >
+              编辑计划
+            </button>
+          )}
+          {project.status === 'awaiting_confirmation' && (
+            <button
+              className="rounded bg-emerald-600 px-3 py-1 font-medium text-white"
+              type="button"
+              onClick={() => void confirmPlan()}
+            >
+              确认执行
+            </button>
+          )}
+        </div>
       </header>
+
+      {showPlan && (
+        <PlanEditor
+          project={project}
+          initialPlan={planDraft}
+          onSaved={onPlanSaved}
+          onClose={() => {
+            setShowPlan(false);
+            setPlanDraft(null);
+          }}
+        />
+      )}
 
       <form className="rounded-xl border border-slate-800 bg-slate-900/40 p-4" onSubmit={onCreate}>
         <h3 className="text-sm font-semibold text-slate-300">新增子任务</h3>
