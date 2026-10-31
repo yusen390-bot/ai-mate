@@ -15,6 +15,7 @@ import type {
   Task,
   TaskStats,
   TaskStatus,
+  TaskTool,
 } from '../../shared/types.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -129,6 +130,8 @@ type TaskRow = {
   plan_version: number;
   order_index: number;
   requires_approval: number;
+  approved: number;
+  tool: string;
   acceptance_criteria: string;
   attempts: number;
   max_attempts: number;
@@ -157,6 +160,8 @@ function toTask(row: TaskRow): Task {
     planVersion: row.plan_version,
     orderIndex: row.order_index,
     requiresApproval: row.requires_approval === 1,
+    approved: row.approved === 1,
+    tool: row.tool as TaskTool,
     acceptanceCriteria: row.acceptance_criteria,
     attempts: row.attempts,
     maxAttempts: row.max_attempts,
@@ -263,8 +268,8 @@ export function createTask(projectId: number, input: CreateTaskInput): Task {
     .prepare(
       `INSERT INTO tasks
          (project_id, title, description, status, dependencies, plan_version,
-          order_index, requires_approval, acceptance_criteria, max_attempts)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          order_index, requires_approval, acceptance_criteria, max_attempts, tool)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       projectId,
@@ -277,6 +282,7 @@ export function createTask(projectId: number, input: CreateTaskInput): Task {
       input.requiresApproval ? 1 : 0,
       input.acceptanceCriteria ?? '',
       input.maxAttempts ?? 3,
+      input.tool ?? 'auto',
     );
   return getTask(Number(info.lastInsertRowid))!;
 }
@@ -291,7 +297,7 @@ export function updateTask(id: number, patch: UpdateTaskInput): Task | null {
   getDb()
     .prepare(
       `UPDATE tasks SET title = ?, description = ?, status = ?, dependencies = ?, plan_version = ?,
-              order_index = ?, requires_approval = ?, acceptance_criteria = ?, max_attempts = ?, updated_at = ${NOW}
+              order_index = ?, requires_approval = ?, acceptance_criteria = ?, max_attempts = ?, tool = ?, updated_at = ${NOW}
         WHERE id = ?`,
     )
     .run(
@@ -304,6 +310,7 @@ export function updateTask(id: number, patch: UpdateTaskInput): Task | null {
       requiresApproval,
       patch.acceptanceCriteria ?? existing.acceptance_criteria,
       patch.maxAttempts ?? existing.max_attempts,
+      patch.tool ?? existing.tool,
       id,
     );
   return getTask(id);
@@ -512,4 +519,121 @@ export function savePlan(
 
     return { version, tasks: listTasks(projectId) };
   });
+}
+// ---------------------------------------------------------------------------
+// 执行引擎（W3）
+// ---------------------------------------------------------------------------
+export function setTaskStatus(
+  id: number,
+  status: TaskStatus,
+  patch: { attempts?: number; lastError?: string | null } = {},
+): void {
+  const row = getDb().prepare('SELECT attempts, last_error FROM tasks WHERE id = ?').get(id) as
+    | { attempts: number; last_error: string | null }
+    | undefined;
+  if (!row) return;
+
+  getDb()
+    .prepare(`UPDATE tasks SET status = ?, attempts = ?, last_error = ?, updated_at = ${NOW} WHERE id = ?`)
+    .run(status, patch.attempts ?? row.attempts, patch.lastError === undefined ? row.last_error : patch.lastError, id);
+}
+
+/** 人工批准：approved=1，任务回到 pending，等待执行器继续 */
+export function approveTask(id: number): void {
+  getDb()
+    .prepare(`UPDATE tasks SET approved = 1, status = 'pending', last_error = NULL, updated_at = ${NOW} WHERE id = ?`)
+    .run(id);
+}
+
+export function recordRunStart(taskId: number, attempt: number, input: string): number {
+  const info = getDb()
+    .prepare(`INSERT INTO runs (task_id, attempt, status, input) VALUES (?, ?, 'running', ?)`)
+    .run(taskId, attempt, input);
+  return Number(info.lastInsertRowid);
+}
+
+export function finishRun(
+  runId: number,
+  status: 'succeeded' | 'failed',
+  output?: string | null,
+  error?: string | null,
+): void {
+  getDb()
+    .prepare(`UPDATE runs SET status = ?, output = ?, error = ?, finished_at = ${NOW} WHERE id = ?`)
+    .run(status, output ?? null, error ?? null, runId);
+}
+
+export type ProjectRun = {
+  id: number;
+  taskId: number;
+  taskTitle: string;
+  attempt: number;
+  status: string;
+  error: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+};
+
+export function listProjectRuns(projectId: number, limit = 100): ProjectRun[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT r.id, r.task_id, t.title AS task_title, r.attempt, r.status, r.error, r.started_at, r.finished_at
+         FROM runs r JOIN tasks t ON t.id = r.task_id
+        WHERE t.project_id = ?
+        ORDER BY r.id DESC
+        LIMIT ?`,
+    )
+    .all(projectId, limit) as {
+    id: number;
+    task_id: number;
+    task_title: string;
+    attempt: number;
+    status: string;
+    error: string | null;
+    started_at: string;
+    finished_at: string | null;
+  }[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    taskId: row.task_id,
+    taskTitle: row.task_title,
+    attempt: row.attempt,
+    status: row.status,
+    error: row.error,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+  }));
+}
+
+/**
+ * 服务重启恢复：running 任务可能已产生外部副作用，不能盲目重跑。
+ * 策略：任务转 needs_review、对应 run 标记 failed，项目转 awaiting_confirmation 等人工处理。
+ */
+export function interruptRunningTasks(): number {
+  const d = getDb();
+  const tasks = d
+    .prepare(
+      `UPDATE tasks
+          SET status = 'needs_review',
+              last_error = '服务重启导致执行中断，需人工确认',
+              updated_at = ${NOW}
+        WHERE status = 'running'`,
+    )
+    .run();
+  const runs = d
+    .prepare(
+      `UPDATE runs
+          SET status = 'failed',
+              error = '服务重启导致执行中断',
+              finished_at = ${NOW}
+        WHERE status = 'running'`,
+    )
+    .run();
+  d.prepare(
+    `UPDATE projects SET status = 'awaiting_confirmation', updated_at = ${NOW}
+      WHERE status = 'running'
+        AND id IN (SELECT project_id FROM tasks WHERE status = 'needs_review')`,
+  ).run();
+  return Number(tasks.changes) + Number(runs.changes);
 }

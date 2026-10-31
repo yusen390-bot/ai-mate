@@ -57,6 +57,7 @@ export default function PlanEditor({ project, initialPlan, onSaved, onClose }: P
             description: '',
             acceptanceCriteria: '',
             requiresApproval: false,
+            tool: 'auto',
             dependsOn: [],
           },
         ],

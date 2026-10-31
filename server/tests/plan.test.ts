@@ -145,12 +145,31 @@ describe('计划 API', () => {
     expect(res.body.error.code).toBe('INVALID_TRANSITION');
   });
 
-  it('running 状态下不能再保存计划', async () => {
+  it('项目执行完成后不能再保存计划', async () => {
     const project = await createProject(app);
-    await request(app).put(`/api/projects/${project.id}/plan`).send(validPlan).expect(200);
+    const simplePlan = {
+      summary: '只有一步的计划',
+      tasks: [
+        { ref: 't1', title: '产出内容', acceptanceCriteria: '有产出', requiresApproval: false, dependsOn: [] },
+      ],
+    };
+
+    await request(app).put(`/api/projects/${project.id}/plan`).send(simplePlan).expect(200);
+
+    // W3：确认后会自动开始执行，等它跑完
     await request(app).post(`/api/projects/${project.id}/plan/confirm`).expect(200);
 
-    const res = await request(app).put(`/api/projects/${project.id}/plan`).send(validPlan).expect(409);
+    const startAt = Date.now();
+    let status = '';
+    while (Date.now() - startAt < 5000) {
+      const res = await request(app).get(`/api/projects/${project.id}`).expect(200);
+      status = res.body.status;
+      if (status === 'done' || status === 'failed') break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    expect(status).toBe('done');
+
+    const res = await request(app).put(`/api/projects/${project.id}/plan`).send(simplePlan).expect(409);
     expect(res.body.error.code).toBe('INVALID_STATE');
   });
 

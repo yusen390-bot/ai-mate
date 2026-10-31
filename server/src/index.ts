@@ -1,11 +1,14 @@
 import { app } from './app.ts';
 import { config, getDbFile, isModelConfigured } from './config.ts';
 import { counts, getDb } from './db.ts';
+import { recoverOnStartup } from './services/recovery.ts';
 
 const dbCounts = (() => {
   getDb();
   return counts();
 })();
+
+recoverOnStartup();
 
 const server = app.listen(config.port, () => {
   console.log(`AI Mate API 已启动   http://localhost:${config.port}`);

@@ -2,6 +2,7 @@ import express from 'express';
 import { errorHandler, notFoundHandler } from './middleware/error.ts';
 import { healthRouter } from './routes/health.ts';
 import { modelRouter } from './routes/model.ts';
+import { executionRouter } from './routes/execution.ts';
 import { planRouter } from './routes/plan.ts';
 import { projectsRouter } from './routes/projects.ts';
 import { tasksRouter } from './routes/tasks.ts';
@@ -19,6 +20,7 @@ export function createApp() {
   app.use('/api/projects', projectsRouter);
   app.use('/api/tasks', tasksRouter);
   app.use(modelRouter);
+  app.use('/api', executionRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { PROJECT_STATUS_LABEL, PROJECT_TRANSITIONS, TASK_STATUS_LABEL, TASK_STATUS_STYLE, TASK_TRANSITIONS, allowedNext, api } from '../api';
-import type { CreateTaskInput, PlanDraft, Project, ProjectStatus, Task, TaskStatus } from '../api';
+import type { CreateTaskInput, PlanDraft, Project, ProjectRunInfo, ProjectStatus, Task, TaskStatus } from '../api';
 import PlanEditor from './PlanEditor';
 
 type Props = {
@@ -24,6 +24,8 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
   const [planVersion, setPlanVersion] = useState(0);
   const [showPlan, setShowPlan] = useState(false);
   const [planDraft, setPlanDraft] = useState<PlanDraft | null>(null);
+  const [runs, setRuns] = useState<ProjectRunInfo[]>([]);
+  const [executing, setExecuting] = useState(false);
 
   const load = useCallback(async () => {
     if (projectId === null) {
@@ -59,6 +61,51 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
     void loadPlan();
   }, [loadPlan]);
 
+  const loadRuns = useCallback(async () => {
+    if (projectId === null) {
+      setRuns([]);
+      return;
+    }
+    try {
+      const data = await api.getProjectRuns(projectId);
+      setRuns(data.runs);
+      setExecuting(data.executing);
+    } catch {
+      /* 执行日志仅用于展示 */
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    void loadRuns();
+  }, [loadRuns]);
+
+  async function runNow() {
+    if (projectId === null) return;
+    setError(null);
+    try {
+      await api.runProject(projectId);
+      window.setTimeout(() => {
+        void load();
+        void loadRuns();
+        onProjectChanged();
+      }, 1200);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function approveAndContinue(taskId: number) {
+    setError(null);
+    try {
+      await api.approveTask(taskId);
+      void load();
+      void loadRuns();
+      onProjectChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   /** 把当前任务转回可编辑的计划草稿（ref 按顺序重建） */
   function tasksToDraft(): PlanDraft {
     const refById = new Map<number, string>();
@@ -71,6 +118,7 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
         description: task.description,
         acceptanceCriteria: task.acceptanceCriteria,
         requiresApproval: task.requiresApproval,
+        tool: task.tool,
         dependsOn: task.dependencies.map((id) => refById.get(id)).filter((ref): ref is string => Boolean(ref)),
       })),
     };
@@ -231,7 +279,28 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
               确认执行
             </button>
           )}
-        </div>
+          {project.status === 'running' && (
+            <button
+              className="rounded bg-indigo-600 px-3 py-1 font-medium text-white disabled:bg-slate-700"
+              type="button"
+              onClick={() => void runNow()}
+              disabled={executing}
+            >
+              {executing ? '执行中…' : '执行 / 继续'}
+            </button>
+          )}
+          <button
+            className="rounded border border-slate-600 px-3 py-1 text-slate-300"
+            type="button"
+            onClick={() => {
+              void load();
+              void loadRuns();
+              void loadPlan();
+              onProjectChanged();
+            }}
+          >
+            刷新执行日志
+          </button>        </div>
       </header>
 
       {showPlan && (
@@ -341,7 +410,15 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
                     </option>
                   ))}
                 </select>
-                <button
+                {task.status === 'needs_review' && task.requiresApproval && (
+                  <button
+                    className="rounded bg-emerald-600 px-2 py-1 text-[11px] font-medium text-white"
+                    type="button"
+                    onClick={() => void approveAndContinue(task.id)}
+                  >
+                    批准并继续
+                  </button>
+                )}                <button
                   className="rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-400 hover:border-rose-500 hover:text-rose-400"
                   type="button"
                   onClick={() => void removeTask(task.id)}
@@ -353,6 +430,36 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
           </li>
         ))}
       </ul>
-    </section>
+
+      <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+        <h3 className="text-sm font-semibold text-slate-300">
+          执行日志 <span className="text-slate-500">({runs.length})</span>
+        </h3>
+        {runs.length === 0 ? (
+          <p className="mt-2 text-xs text-slate-500">还没有执行记录。</p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-[11px]">
+            {runs.slice(0, 20).map((run) => (
+              <li key={run.id} className="flex flex-wrap items-center gap-2 text-slate-400">
+                <span className="rounded bg-slate-800 px-1.5 py-0.5 text-slate-300">#{run.id}</span>
+                <span className="text-slate-300">{run.taskTitle}</span>
+                <span>第 {run.attempt} 次</span>
+                <span
+                  className={
+                    run.status === 'succeeded'
+                      ? 'text-emerald-400'
+                      : run.status === 'failed'
+                        ? 'text-rose-400'
+                        : 'text-sky-400'
+                  }
+                >
+                  {run.status}
+                </span>
+                {run.error && <span className="text-rose-300">（{run.error.slice(0, 80)}）</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>    </section>
   );
 }

@@ -25,6 +25,10 @@ export const TASK_STATUSES = [
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
+/** 受控工具：auto = 由执行器按标题推断 */
+export const TASK_TOOLS = ['auto', 'report', 'text_check', 'note'] as const;
+export type TaskTool = (typeof TASK_TOOLS)[number];
+
 /**
  * 项目状态允许的流转（"当前 -> 允许的下一个"）。
  * 未列出的跳转一律视为非法（例如 draft 不能直接跳到 done）。
@@ -33,7 +37,7 @@ export const PROJECT_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
   draft: ['planning', 'awaiting_confirmation', 'cancelled'],
   planning: ['awaiting_confirmation', 'running', 'draft', 'cancelled'],
   awaiting_confirmation: ['running', 'planning', 'cancelled'],
-  running: ['done', 'failed', 'cancelled'],
+  running: ['done', 'failed', 'cancelled', 'awaiting_confirmation'],
   done: [],
   failed: ['planning', 'cancelled'],
   cancelled: ['draft'],
@@ -87,6 +91,8 @@ export type Task = {
   planVersion: number;
   orderIndex: number;
   requiresApproval: boolean;
+  approved: boolean;
+  tool: TaskTool;
   acceptanceCriteria: string;
   attempts: number;
   maxAttempts: number;
@@ -141,6 +147,7 @@ export type PlanTaskDraft = {
   description: string;
   acceptanceCriteria: string;
   requiresApproval: boolean;
+  tool: TaskTool;
   dependsOn: string[];
 };
 

@@ -6,6 +6,7 @@ import { AppError } from '../middleware/error.ts';
 import { validate } from '../middleware/validate.ts';
 import { planDraftSchema } from '../schemas.ts';
 import { generatePlan } from '../services/planner.ts';
+import { runProject } from '../services/executor.ts';
 import { assertPlanConsistent } from '../services/planRules.ts';
 
 /** 挂载在 /api/projects/:projectId/plan 下 */
@@ -84,9 +85,12 @@ planRouter.post('/confirm', (req, res) => {
     throw new AppError('PLAN_EMPTY', '还没有已保存的计划任务，无法确认执行', 409);
   }
 
+  const started = updateProject(project.id, { status: 'running' });
+  void runProject(project.id);
+
   res.json({
-    project: updateProject(project.id, { status: 'running' }),
+    project: started,
     version: plan.version,
-    note: 'W2 只切换状态；真正的执行引擎在 W3 接入',
+    note: '已确认，执行引擎已启动',
   });
 });

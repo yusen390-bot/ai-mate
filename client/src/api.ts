@@ -62,6 +62,16 @@ export const TASK_STATUS_STYLE: Record<TaskStatus, string> = {
   cancelled: 'bg-slate-800 text-slate-500 border-slate-700',
 };
 
+export type ProjectRunInfo = {
+  id: number;
+  taskId: number;
+  taskTitle: string;
+  attempt: number;
+  status: string;
+  error: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+};
 export type CreateTaskInput = {
   title: string;
   description?: string;
@@ -157,4 +167,18 @@ export const api = {
     fetch(`/api/projects/${projectId}/plan/confirm`, { method: 'POST' }).then((res) =>
       readJson<{ project: Project; version: number; note: string }>(res),
     ),
-};
+  // ---------- 执行（W3）----------
+  runProject: (projectId: number) =>
+    fetch(`/api/projects/${projectId}/run`, { method: 'POST' }).then((res) =>
+      readJson<{ started: boolean; message?: string }>(res),
+    ),
+
+  getProjectRuns: (projectId: number) =>
+    fetch(`/api/projects/${projectId}/runs`).then((res) =>
+      readJson<{ project: Project; runs: ProjectRunInfo[]; executing: boolean }>(res),
+    ),
+
+  approveTask: (taskId: number) =>
+    fetch(`/api/tasks/${taskId}/approve`, { method: 'POST' }).then((res) =>
+      readJson<{ task: Task; project: Project }>(res),
+    ),};

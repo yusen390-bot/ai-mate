@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PROJECT_STATUSES, TASK_STATUSES } from '../../shared/types.ts';
+import { PROJECT_STATUSES, TASK_STATUSES, TASK_TOOLS } from '../../shared/types.ts';
 import type { ProjectStatus, TaskStatus } from '../../shared/types.ts';
 
 // 状态词表来自 shared/types.ts（与前端共用同一份定义）
@@ -8,6 +8,7 @@ export type { ProjectStatus, TaskStatus };
 
 export const projectStatusSchema = z.enum(PROJECT_STATUSES);
 export const taskStatusSchema = z.enum(TASK_STATUSES);
+export const taskToolSchema = z.enum(TASK_TOOLS);
 
 // ---------- 基础字段 ----------
 const titleField = z.string().trim().min(1, '标题不能为空').max(200, '标题最长 200 字');
@@ -34,6 +35,7 @@ export const createTaskSchema = z.object({
   dependencies: idList.default([]),
   acceptanceCriteria: z.string().max(2000).default(''),
   requiresApproval: z.boolean().default(false),
+  tool: taskToolSchema.default('auto'),
   orderIndex: z.number().int().min(0).optional(),
   planVersion: z.number().int().min(1).optional(),
   maxAttempts: z.number().int().min(1).max(10).optional(),
@@ -46,6 +48,7 @@ export const updateTaskSchema = z.object({
   dependencies: idList.optional(),
   acceptanceCriteria: z.string().max(2000).optional(),
   requiresApproval: z.boolean().optional(),
+  tool: taskToolSchema.optional(),
   orderIndex: z.number().int().min(0).optional(),
   planVersion: z.number().int().min(1).optional(),
   maxAttempts: z.number().int().min(1).max(10).optional(),
@@ -76,6 +79,7 @@ export const planTaskDraftSchema = z.object({
     .min(1, '每个任务必须有可验证的完成标准')
     .max(2000, '完成标准最长 2000 字'),
   requiresApproval: z.boolean().default(false),
+  tool: taskToolSchema.default('auto'),
   dependsOn: z.array(refField).max(20, '单个任务依赖过多').default([]),
 });
 
