@@ -7,6 +7,7 @@ import {
   allowedNext,
 } from '@shared/types';
 import type {
+  Artifact,
   HealthResponse,
   PlanDraft,
   PlanTaskDraft,
@@ -21,6 +22,7 @@ import type {
 
 export { PROJECT_STATUSES, PROJECT_TRANSITIONS, TASK_STATUSES, TASK_TRANSITIONS, allowedNext };
 export type {
+  Artifact,
   HealthResponse,
   PlanDraft,
   PlanTaskDraft,
@@ -180,5 +182,14 @@ export const api = {
 
   approveTask: (taskId: number) =>
     fetch(`/api/tasks/${taskId}/approve`, { method: 'POST' }).then((res) =>
+      readJson<{ task: Task; project: Project }>(res),
+    ),  // ---------- W4：产物 / 重试 ----------
+  listArtifacts: (projectId: number) =>
+    fetch(`/api/projects/${projectId}/artifacts`)
+      .then((res) => readJson<{ artifacts: Artifact[] }>(res))
+      .then((data) => data.artifacts),
+
+  retryTask: (taskId: number) =>
+    fetch(`/api/tasks/${taskId}/retry`, { method: 'POST' }).then((res) =>
       readJson<{ task: Task; project: Project }>(res),
     ),};

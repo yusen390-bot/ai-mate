@@ -637,3 +637,9 @@ export function interruptRunningTasks(): number {
   ).run();
   return Number(tasks.changes) + Number(runs.changes);
 }
+/** W4：失败任务重试（attempts 归零，状态回到 pending） */
+export function retryTask(id: number): void {
+  getDb()
+    .prepare(`UPDATE tasks SET status = 'pending', attempts = 0, last_error = NULL, updated_at = ${NOW} WHERE id = ?`)
+    .run(id);
+}

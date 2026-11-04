@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { PROJECT_STATUS_LABEL, PROJECT_TRANSITIONS, TASK_STATUS_LABEL, TASK_STATUS_STYLE, TASK_TRANSITIONS, allowedNext, api } from '../api';
-import type { CreateTaskInput, PlanDraft, Project, ProjectRunInfo, ProjectStatus, Task, TaskStatus } from '../api';
+import type { Artifact, CreateTaskInput, PlanDraft, Project, ProjectRunInfo, ProjectStatus, Task, TaskStatus } from '../api';
 import PlanEditor from './PlanEditor';
+import TaskDetail from './TaskDetail';
+import TaskMap from './TaskMap';
 
 type Props = {
   project: Project | null;
@@ -26,6 +28,10 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
   const [planDraft, setPlanDraft] = useState<PlanDraft | null>(null);
   const [runs, setRuns] = useState<ProjectRunInfo[]>([]);
   const [executing, setExecuting] = useState(false);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [view, setView] = useState<'list' | 'map'>('list');
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const selectedTask = tasks.find((task) => task.id === selectedTaskId) ?? null;
 
   const load = useCallback(async () => {
     if (projectId === null) {
@@ -70,6 +76,7 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
       const data = await api.getProjectRuns(projectId);
       setRuns(data.runs);
       setExecuting(data.executing);
+      setArtifacts(await api.listArtifacts(projectId));
     } catch {
       /* 执行日志仅用于展示 */
     }
@@ -144,6 +151,35 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
     onProjectChanged();
   }
 
+  async function retryOne(taskId: number) {
+    setError(null);
+    try {
+      await api.retryTask(taskId);
+      window.setTimeout(() => {
+        void load();
+        void loadRuns();
+        onProjectChanged();
+      }, 1200);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function retryFailed() {
+    const failed = tasks.filter((task) => task.status === 'failed');
+    if (failed.length === 0) return;
+    setError(null);
+    try {
+      for (const task of failed) await api.retryTask(task.id);
+      window.setTimeout(() => {
+        void load();
+        void loadRuns();
+        onProjectChanged();
+      }, 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
   async function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (projectId === null || !title.trim() || busy) return;
@@ -300,7 +336,46 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
             }}
           >
             刷新执行日志
-          </button>        </div>
+          </button>          <button
+            className={view === 'list' ? 'rounded bg-slate-700 px-3 py-1 text-white' : 'rounded border border-slate-600 px-3 py-1 text-slate-300'}
+            type="button"
+            onClick={() => setView('list')}
+          >
+            列表
+          </button>
+          <button
+            className={view === 'map' ? 'rounded bg-slate-700 px-3 py-1 text-white' : 'rounded border border-slate-600 px-3 py-1 text-slate-300'}
+            type="button"
+            onClick={() => setView('map')}
+          >
+            任务地图
+          </button>
+          {project.status === 'awaiting_confirmation' && tasks.some((task) => task.status === 'needs_review') && (
+            <span className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-amber-300">
+              有任务等待人工批准
+            </span>
+          )}
+          {project.status === 'failed' && (
+            <>
+              <button
+                className="rounded bg-amber-600 px-3 py-1 font-medium text-white"
+                type="button"
+                onClick={() => void retryFailed()}
+              >
+                重试失败任务
+              </button>
+              <button
+                className="rounded border border-slate-600 px-3 py-1 text-slate-300"
+                type="button"
+                onClick={() => {
+                  setPlanDraft(null);
+                  setShowPlan(true);
+                }}
+              >
+                重新规划
+              </button>
+            </>
+          )}        </div>
       </header>
 
       {showPlan && (
@@ -315,6 +390,18 @@ export default function TaskBoard({ project, onProjectChanged }: Props) {
         />
       )}
 
+      {view === 'map' && <TaskMap tasks={tasks} onSelect={setSelectedTaskId} />}
+
+      {selectedTask && (
+        <TaskDetail
+          task={selectedTask}
+          runs={runs}
+          artifacts={artifacts}
+          onClose={() => setSelectedTaskId(null)}
+          onRetry={(id) => void retryOne(id)}
+          onApprove={(id) => void approveAndContinue(id)}
+        />
+      )}
       <form className="rounded-xl border border-slate-800 bg-slate-900/40 p-4" onSubmit={onCreate}>
         <h3 className="text-sm font-semibold text-slate-300">新增子任务</h3>
         <div className="mt-3 grid gap-3 md:grid-cols-2">

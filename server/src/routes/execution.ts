@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PROJECT_TRANSITIONS, canTransition } from '../../../shared/types.ts';
-import { approveTask, getProject, getTask, listProjectRuns, updateProject } from '../db.ts';
+import { approveTask, getProject, getTask, listProjectRuns, retryTask, updateProject } from '../db.ts';
 import { AppError } from '../middleware/error.ts';
 import { validate } from '../middleware/validate.ts';
 import { idParamSchema } from '../schemas.ts';
@@ -44,6 +44,25 @@ executionRouter.post('/tasks/:id/approve', validate(idParamSchema, 'params'), (r
   }
 
   approveTask(id);
+
+  const project = getProject(task.projectId);
+  if (project && canTransition(PROJECT_TRANSITIONS, project.status, 'running')) {
+    updateProject(project.id, { status: 'running' });
+  }
+  void runProject(task.projectId);
+
+  res.json({ task: getTask(id), project: getProject(task.projectId) });
+});
+/** W4：失败任务重试 → 回 pending 并恢复项目执行 */
+executionRouter.post('/tasks/:id/retry', validate(idParamSchema, 'params'), (req, res) => {
+  const id = Number(req.params.id);
+  const task = getTask(id);
+  if (!task) throw new AppError('TASK_NOT_FOUND', `任务 ${id} 不存在`, 404);
+  if (task.status !== 'failed' && task.status !== 'needs_review') {
+    throw new AppError('INVALID_STATE', `任务状态「${task.status}」不能重试`, 409, { status: task.status });
+  }
+
+  retryTask(id);
 
   const project = getProject(task.projectId);
   if (project && canTransition(PROJECT_TRANSITIONS, project.status, 'running')) {

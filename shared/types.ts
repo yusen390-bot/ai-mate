@@ -39,7 +39,7 @@ export const PROJECT_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
   awaiting_confirmation: ['running', 'planning', 'cancelled'],
   running: ['done', 'failed', 'cancelled', 'awaiting_confirmation'],
   done: [],
-  failed: ['planning', 'cancelled'],
+  failed: ['planning', 'running', 'cancelled'],
   cancelled: ['draft'],
 };
 

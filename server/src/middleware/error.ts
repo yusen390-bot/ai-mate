@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
+import { ModelError } from '../model.ts';
 
 /** 业务错误：统一携带 code / status / details */
 export class AppError extends Error {
@@ -29,6 +30,11 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     res.status(400).json({ error: { code: 'INVALID_JSON', message: '请求体不是合法 JSON' } });
     return;
   }
+  if (err instanceof ModelError) {
+    res.status(err.status).json({ error: { code: 'MODEL_ERROR', message: err.message } });
+    return;
+  }
+
   console.error('[unhandled-error]', err);
   res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: '服务器内部错误' } });
 };
